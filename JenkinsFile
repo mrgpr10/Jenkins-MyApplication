@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    tools {
+        dotnetsdk 'dotnet' // Ensure this matches the name in Global Tool Configuration
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Pulling the code from GitHub
+                git branch: 'main', url: 'https://github.com/kfayazuddin/LastAttemptJenkin.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                script {
+                    def slnFile = findFiles(glob: '*/.sln')[0].path
+                    echo "Building solution: ${slnFile}"
+                    bat "dotnet build ${slnFile} --configuration Release"
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    def testProjects = findFiles(glob: '*/*Tests/.csproj')
+                    for (def project in testProjects) {
+                        echo "Running tests for project: ${project.path}"
+                        bat "dotnet test ${project.path} --no-build --verbosity normal"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo 'Deploying application...'
+                bat "dotnet publish -c Release -o /path/to/deploy"
+            }
+        }
+    }
+
+    post {
+        always {
+            // Archive test results, if any
+            junit '*/TestResults/.xml'
+        }
+        failure {
+            // Additional steps if build fails
+            echo 'Build failed!'
+        }
+    }
+}
